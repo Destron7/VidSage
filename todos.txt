@@ -1,0 +1,2 @@
+1. Add restricting policy to the Agents.
+2. restrict model to use only required tools.

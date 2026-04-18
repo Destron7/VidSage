@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+.env
+
+# Uploads & Exports
+backend/uploads/
+backend/exports/
+
+# IDE
+.vscode/
+.idea/
+
+# Node (frontend)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Docker
+pgdata/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# SearXNG
+searxng/
