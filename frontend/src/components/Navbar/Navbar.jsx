@@ -7,13 +7,18 @@ import { GradientText } from "@/components/ui/gradient-text";
 export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { mode, setMode, jobId } = useSessionStore();
+  const { mode, setMode, jobId: storeJobId } = useSessionStore();
 
   const isHome = location.pathname === "/";
   const isUpload = location.pathname === "/upload";
   const isLibrary = location.pathname === "/library";
   const isWatch = location.pathname.startsWith("/watch");
   const isSession = location.pathname.startsWith("/session");
+
+  // Extract jobId from URL if store is empty (e.g. after hard refresh)
+  const pathParts = location.pathname.split("/");
+  const routeJobId = (isWatch || isSession) && pathParts.length >= 3 ? pathParts[2] : null;
+  const activeJobId = routeJobId || storeJobId;
 
   // If we're on Home, maybe we want a minimal transparent navbar or no navbar? Let's make it universal but adapt.
   
@@ -53,10 +58,10 @@ export default function Navbar() {
            </Link>
         </div>
 
-        {(isWatch || isSession) && jobId && (
+        {(isWatch || isSession) && activeJobId && (
           <div className="ml-6 hidden lg:block">
             <p className="text-[10px] font-mono font-bold text-[#5A5A5A] uppercase tracking-wider bg-white border border-[#2D2D2D]/50 px-2 py-0.5 rounded shadow-sm shadow-[#2D2D2D]/20">
-              ID: {jobId.substring(0,8)}
+              ID: {String(activeJobId).substring(0,8)}
             </p>
           </div>
         )}
@@ -71,7 +76,7 @@ export default function Navbar() {
             <button
               onClick={() => {
                 setMode("viewer");
-                navigate(`/watch/${jobId}`);
+                navigate(`/watch/${activeJobId}`);
               }}
               className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-all ${
                 mode === "viewer"
@@ -84,7 +89,7 @@ export default function Navbar() {
             <button
               onClick={() => {
                 setMode("scientist");
-                navigate(`/session/${jobId}`);
+                navigate(`/session/${activeJobId}`);
               }}
               className={`flex items-center gap-1.5 px-3 py-1 rounded text-xs font-bold uppercase tracking-widest transition-all ${
                 mode === "scientist"

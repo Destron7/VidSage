@@ -26,7 +26,7 @@ INFERENCE ROUTING RULE (implement this first — everything depends on it):
     - Long context analysis
 
   AUDIO → Always local GPU (faster-whisper CUDA float16)
-  WAKE WORD → Always local (OpenWakeWord ONNX CUDA)
+  WAKE WORD → Always local (Vosk Offline Engine)
 
 
 ================================================================================
@@ -61,7 +61,7 @@ ffmpeg-python==0.2.0
 sqlalchemy[asyncio]==2.0.29
 asyncpg==0.29.0
 alembic==1.13.1
-openwakeword==0.6.0
+vosk==0.3.45
 pyaudio==0.2.14
 reportlab==4.1.0
 httpx==0.27.0
@@ -71,9 +71,7 @@ python-dotenv==1.0.1
 pydantic==2.6.4
 pydantic-settings==2.2.1
 ollama==0.1.9
-torch==2.2.0+cu121               # PyTorch CUDA 12.1 build — for OpenWakeWord GPU
-torchaudio==2.2.0+cu121
-onnxruntime-gpu==1.17.1          # ONNX Runtime GPU — for OpenWakeWord CUDA
+# ONNX Runtime removed in favor of Vosk for Windows stability
 
 # Install PyTorch CUDA build separately:
 # pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121
@@ -789,15 +787,13 @@ const useVideoSync = (terms, currentTime) => {
 export default useVideoSync;
 
 
---- STEP 4.3: src/hooks/useSSE.js ---
+--- STEP 4.3: src/hooks/useSSE.js (Reactive Core) ---
 
-import { useEffect } from 'react';
-import { useSessionStore } from '../store/sessionStore';
-
-const useSSE = (jobId) => {
-  const addTerm = useSessionStore(s => s.addTerm);
-  useEffect(() => {
-    if (!jobId) return;
+# Connects to /api/v1/voice/stream for real-time events.
+# Handles:
+# 1. voice_status / voice_command / voice_intent (for assistant UI)
+# 2. job_status (updates frontend when backend transcription finishes)
+# Accepts onJobComplete callback to trigger reactive re-fetching.
     const es = new EventSource(`http://localhost:8000/api/terms/detect/${jobId}`);
     es.onmessage = (e) => {
       const data = JSON.parse(e.data);
@@ -833,18 +829,6 @@ export const useSessionStore = create((set) => ({
 PHASE 5 — OPENWAKEWORD (CUDA) + VOICE PIPELINE + PDF EXPORT
 Target: Weeks 12–14
 ================================================================================
-
---- STEP 5.1: Wake word with OpenWakeWord on CUDA ---
-
-# OpenWakeWord uses ONNX Runtime. Install the GPU version:
-# pip install onnxruntime-gpu openwakeword pyaudio
-
-# OpenWakeWord auto-uses GPU via onnxruntime-gpu if CUDA is available.
-# This leaves the GPU mostly idle between wake word checks — negligible VRAM.
-
-import openwakeword
-from openwakeword.model import Model
-import pyaudio, numpy as np, wave, tempfile
 
 oww_model = Model(
     wakeword_models=["hey_jarvis"],   # placeholder — train custom "Hey VidSage" later

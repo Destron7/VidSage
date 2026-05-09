@@ -3,14 +3,14 @@
 
 from ollama import Client
 from dotenv import load_dotenv
-from agents.inference_router import ask_llm
+from agents.inference_router import chat_cloud  # Use heavy Cloud model for extraction
 
 import os
 import json
 
 load_dotenv()
 
-def extract_glossary(transcription: str):
+async def extract_glossary(transcription: str):
     print("🧠 AI: Extracting glossary from transcript...")
 
     prompt = f"""
@@ -35,14 +35,15 @@ def extract_glossary(transcription: str):
     Return only the JSON array.
     """
 
-    # Ask the AI!
-    response = ask_llm(
+    # Cloud Route: Uses Reasoning model (No tools required for detection)
+    response = await chat_cloud(
         messages = [
             {
                 'role':'user',
                 'content':prompt
             }
-        ]
+        ],
+        tools=None
     )
 
     raw_json_output = response['message']['content']

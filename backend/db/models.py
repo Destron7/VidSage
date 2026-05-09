@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import String, Integer, ForeignKey
+from sqlalchemy import String, Integer, Float, ForeignKey
 
 class Base(DeclarativeBase):
     pass
@@ -17,6 +17,7 @@ class VideoDB(Base):
     transcription: Mapped[str] = mapped_column(String, nullable=True)
     summary: Mapped[str] = mapped_column(String, nullable=True)
     glossary: Mapped[str] = mapped_column(String, nullable=True)
+    timed_segments: Mapped[str] = mapped_column(String, nullable=True)  # JSON: [{start, end, text}, ...]
 
 class NoteDB(Base):
     __tablename__ = "notes"
@@ -28,3 +29,6 @@ class NoteDB(Base):
     
     # The actual text the user typed
     content: Mapped[str] = mapped_column(String)
+    
+    # Video playback timestamp (seconds) when the note was created
+    timestamp: Mapped[float] = mapped_column(Float, nullable=True, default=0.0)

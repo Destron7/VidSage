@@ -1,2 +1,5 @@
-1. Add restricting policy to the Agents.
-2. restrict model to use only required tools.
+# VidSage — Project Todos
+
+[x] 1. Add restricting policy to the Agents. (Locked voice to local, research/terms to cloud)
+[x] 2. Restrict model to use only required tools. (Explicit tool lists in chat calls)
+[x] 3. Implement Phase 5: Voice Pipeline + PDF Export completion. (Pivot to Vosk for Windows stability)

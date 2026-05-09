@@ -16,6 +16,13 @@ def get_model() -> WhisperModel:
     return _model
 
 def extract_text(file_path: str) -> str:
+    """Returns the full transcription text."""
+    result = extract_text_with_timestamps(file_path)
+    return result["text"]
+
+
+def extract_text_with_timestamps(file_path: str) -> dict:
+    """Returns full text AND timestamped segments for term matching."""
     print(f"🧠 AI is listening to {file_path}...")
     
     model = get_model()
@@ -30,8 +37,20 @@ def extract_text(file_path: str) -> str:
     )
     print(f"Detected Language: {info.language}")
 
-    # Join all segment texts
-    full_text = " ".join(segment.text for segment in segments)
+    # Collect segments with timestamps
+    timed_segments = []
+    texts = []
+    for segment in segments:
+        texts.append(segment.text)
+        timed_segments.append({
+            "start": round(segment.start, 2),
+            "end": round(segment.end, 2),
+            "text": segment.text.strip()
+        })
 
+    full_text = " ".join(texts)
     print("✅ Done!")
-    return full_text.strip()
+    return {
+        "text": full_text.strip(),
+        "segments": timed_segments
+    }

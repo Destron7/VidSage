@@ -4,7 +4,11 @@
 import json
 from agents.inference_router import chat_local  # Fast: no network latency for voice UX
 
-def parse_intent(command_text: str) -> dict:
+async def parse_intent(command_text: str) -> dict:
+    """
+    Async intent parser for voice commands. 
+    Uses local GPU for sub-3s response time.
+    """
     print(f"🎙️ AI parsing voice command: '{command_text}'")
     
     prompt = f"""
@@ -25,12 +29,12 @@ def parse_intent(command_text: str) -> dict:
     Return only the JSON object.
     """
     
-    # LOCAL GPU — sub-3s response, perfect for voice UX (no Cloud network latency)
-    response = chat_local(
+    # LOCAL GPU — async call
+    response = await chat_local(
         messages=[{"role": "user", "content": prompt}]
     )
     
-    raw_json = response['message']['content']
+    raw_json = response['message']['content'] if 'message' in response else "{}"
     
     try:
         intent_data = json.loads(raw_json)

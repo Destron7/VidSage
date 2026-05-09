@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from typing import Optional
 
 from db.database import get_db
 from db.models import NoteDB
@@ -12,6 +13,7 @@ router = APIRouter()
 class NoteCreate(BaseModel):
     video_id: int
     content: str
+    timestamp: Optional[float] = 0.0
 
 @router.post("/{video_id}")
 async def create_note(
@@ -20,7 +22,8 @@ async def create_note(
 ):
     new_note = NoteDB(
         video_id = request.video_id,
-        content = request.content
+        content = request.content,
+        timestamp = request.timestamp or 0.0
     )
     db.add(new_note)
     db.commit()
@@ -32,7 +35,7 @@ async def create_note(
 async def get_notes_for_video(video_id: int, db: Session = Depends(get_db)):
     # Fetch an array of all notes where the video_id matches
     notes = db.query(NoteDB).filter(NoteDB.video_id == video_id).all()
-    return {"notes": [{"id": n.id, "content": n.content} for n in notes]}
+    return {"notes": [{"id": n.id, "content": n.content, "timestamp": n.timestamp or 0.0} for n in notes]}
 
 class NoteUpdate(BaseModel):
     content: str

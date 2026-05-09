@@ -7,9 +7,26 @@ function getYouTubeId(url) {
   return match ? match[1] : null;
 }
 
+// Module-level YouTube API loader (ensures single load across re-renders)
+let ytApiPromise = null;
+function ensureYouTubeAPI() {
+  if (window.YT && window.YT.Player) return Promise.resolve();
+  if (ytApiPromise) return ytApiPromise;
+  ytApiPromise = new Promise((resolve) => {
+    window.onYouTubeIframeAPIReady = resolve;
+    const tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    document.head.appendChild(tag);
+  });
+  return ytApiPromise;
+}
+
 export default function VideoPlayer({ url, playing, onTogglePlay, currentTime, setCurrentTime, detectedTerms }) {
   const videoRef = useRef(null);
+  const ytPlayerRef = useRef(null);
   const [duration, setDuration] = useState(0);
+  const [ytReady, setYtReady] = useState(false);
+  const ytContainerId = useRef(`yt-player-${Date.now()}`);
 
   const formatTime = (secs) => {
     const m = Math.floor(secs / 60);
@@ -20,7 +37,84 @@ export default function VideoPlayer({ url, playing, onTogglePlay, currentTime, s
   const youtubeId = getYouTubeId(url);
   const isYouTube = !!youtubeId;
 
-  // Sync play/pause state for local video
+  // ─── YouTube IFrame Player API setup ───
+  useEffect(() => {
+    if (!isYouTube || !youtubeId) return;
+
+    let destroyed = false;
+
+    const init = async () => {
+      await ensureYouTubeAPI();
+      if (destroyed) return;
+
+      // Destroy previous instance
+      if (ytPlayerRef.current) {
+        try { ytPlayerRef.current.destroy(); } catch(e) {}
+        ytPlayerRef.current = null;
+      }
+
+      ytPlayerRef.current = new window.YT.Player(ytContainerId.current, {
+        videoId: youtubeId,
+        playerVars: {
+          autoplay: playing ? 1 : 0,
+          modestbranding: 1,
+          rel: 0,
+          enablejsapi: 1,
+          origin: window.location.origin,
+        },
+        events: {
+          onReady: () => {
+            if (destroyed) return;
+            setYtReady(true);
+            if (ytPlayerRef.current?.getDuration) {
+              setDuration(ytPlayerRef.current.getDuration());
+            }
+          },
+        },
+      });
+    };
+
+    init();
+
+    return () => {
+      destroyed = true;
+      if (ytPlayerRef.current) {
+        try { ytPlayerRef.current.destroy(); } catch(e) {}
+        ytPlayerRef.current = null;
+      }
+      setYtReady(false);
+    };
+  }, [youtubeId, isYouTube]);
+
+  // ─── Poll YouTube player for currentTime (every 250ms) ───
+  useEffect(() => {
+    if (!isYouTube || !ytReady) return;
+
+    const interval = setInterval(() => {
+      if (ytPlayerRef.current?.getCurrentTime) {
+        setCurrentTime(ytPlayerRef.current.getCurrentTime());
+      }
+      if (ytPlayerRef.current?.getDuration && duration === 0) {
+        setDuration(ytPlayerRef.current.getDuration());
+      }
+    }, 250);
+
+    return () => clearInterval(interval);
+  }, [isYouTube, ytReady, setCurrentTime]);
+
+  // ─── Sync play/pause for YouTube ───
+  useEffect(() => {
+    if (!isYouTube || !ytReady || !ytPlayerRef.current) return;
+    try {
+      if (playing) {
+        ytPlayerRef.current.playVideo();
+      } else {
+        ytPlayerRef.current.pauseVideo();
+      }
+    } catch(e) {}
+  }, [playing, isYouTube, ytReady]);
+
+  // ─── Sync play/pause for local video ───
   useEffect(() => {
     if (!isYouTube && videoRef.current) {
       if (playing) {
@@ -30,6 +124,34 @@ export default function VideoPlayer({ url, playing, onTogglePlay, currentTime, s
       }
     }
   }, [playing, isYouTube]);
+
+  // ─── Expose global getTime/seekTo for NotesPanel, Timeline, etc. ───
+  useEffect(() => {
+    window.__vidsage_getTime = () => {
+      if (isYouTube && ytPlayerRef.current?.getCurrentTime) {
+        return ytPlayerRef.current.getCurrentTime();
+      }
+      if (videoRef.current) {
+        return videoRef.current.currentTime;
+      }
+      return currentTime;
+    };
+
+    window.__vidsage_seekTo = (time) => {
+      if (isYouTube && ytPlayerRef.current?.seekTo) {
+        ytPlayerRef.current.seekTo(time, true);
+        setCurrentTime(time);
+      } else if (videoRef.current) {
+        videoRef.current.currentTime = time;
+        setCurrentTime(time);
+      }
+    };
+
+    return () => {
+      delete window.__vidsage_getTime;
+      delete window.__vidsage_seekTo;
+    };
+  }, [isYouTube, ytReady, currentTime, setCurrentTime]);
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
@@ -48,14 +170,9 @@ export default function VideoPlayer({ url, playing, onTogglePlay, currentTime, s
       
       <div className="flex-grow relative">
         {isYouTube ? (
-          <iframe
-            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=${playing ? 1 : 0}&modestbranding=1&rel=0`}
-            title="VidSage Player"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="absolute inset-0 w-full h-full"
-            style={{ border: 'none' }}
-          />
+          <div className="absolute inset-0 w-full h-full">
+            <div id={ytContainerId.current} className="w-full h-full" />
+          </div>
         ) : (
           <video
             ref={videoRef}

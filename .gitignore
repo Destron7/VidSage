@@ -27,6 +27,10 @@ pgdata/
 # OS
 .DS_Store
 Thumbs.db
+*.db
+*.tar.gz
 
 # SearXNG
 searxng/
+
+# DB

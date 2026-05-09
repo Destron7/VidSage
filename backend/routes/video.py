@@ -5,17 +5,19 @@ from sqlalchemy.orm import Session
 from db.database import get_db, sessionLocal
 from db.models import VideoDB
 
-from processing.whisper_stt import extract_text
+from processing.whisper_stt import extract_text, extract_text_with_timestamps
 from processing.ytdlp_downloader import video_downloader
 
 from agents.inference_router import ask_llm
 from agents.voice_agent import parse_intent
+from utils.sse_manager import sse_manager
 
 from dotenv import load_dotenv
 
 import shutil
 import time
 import ffmpeg
+import json
 import os
 
 # Loading .env file
@@ -69,9 +71,10 @@ def transcribe_video_task(video_id: int, filename: str):
     # Construct the exact path where we saved the video
     file_path = f"uploads/{filename}"
 
-    # Run the AI! 
-    # (This might take a few seconds depending on the computer)
-    transcribed_text = extract_text(file_path)
+    # Run the AI with timestamps!
+    result = extract_text_with_timestamps(file_path)
+    transcribed_text = result["text"]
+    timed_segments = result["segments"]
 
     # Opening the fresh session for background task.
     db = sessionLocal()
@@ -81,8 +84,12 @@ def transcribe_video_task(video_id: int, filename: str):
         if video:
             video.status = "completed"
             video.transcription = transcribed_text
+            video.timed_segments = json.dumps(timed_segments)
             db.commit()
             print(f"✅ AI: Database updated! {filename} is ready for chat.")
+            
+            # 🚀 Broadcast job status update to frontend
+            sse_manager.broadcast("job_status", {"id": video_id, "status": "completed"})
     finally:
         db.close()
 
@@ -203,27 +210,21 @@ async def get_video_summary(
         print("⚡ Fast load! Returning cached summary from DB.")
         return {"summary": video.summary}
 
-    # Build the prompt
-    prompt = f"""
-    You are a video summarization expert.
-    Summarize the following video transcription in bullet points.
-    
-    Transcription:\n{video.transcription}
-    
-    Summary:\n
-    """
-
-    # Generate summary
-    response = ask_llm(
+    # Generate summary via async router
+    response = await ask_llm(
         messages=[
             {
+                "role": "system",
+                "content": "You are a video summarization expert. Summarize the following video transcription in bullet points."
+            },
+            {
                 "role": "user",
-                "content": prompt,
+                "content": f"Transcription:\n{video.transcription}",
             }
         ]
     )
 
-    summary = response['message']['content']
+    summary = response['message']['content'] if 'message' in response else "Summary generation failed."
 
     # Update video with summary
     video.summary = summary

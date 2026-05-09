@@ -1,2 +1,13 @@
-# VidSage — PostgreSQL + SearXNG
+# VidSage — SearXNG
 # Run: docker-compose up -d
+
+version: '3.8'
+services:
+  searxng:
+    image: searxng/searxng:latest
+    ports:
+      - "18080:8080"
+    volumes:
+      - ./searxng:/etc/searxng
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:8080
