@@ -156,6 +156,14 @@ async def get_video_data(video_id: int, db: Session = Depends(get_db)):
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
 
+    import json
+    timed_segments_data = []
+    if video.timed_segments:
+        try:
+            timed_segments_data = json.loads(video.timed_segments)
+        except:
+            pass
+
     return {
         "id": video.id,
         "title": video.title,
@@ -163,7 +171,8 @@ async def get_video_data(video_id: int, db: Session = Depends(get_db)):
         "filename": video.filename,
         "youtube_url": video.youtube_url,
         "status": video.status,
-        "transcription": video.transcription
+        "transcription": video.transcription,
+        "timed_segments": timed_segments_data
     }
 
 # Converting Seconds to human readable timestamp string format

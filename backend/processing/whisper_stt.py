@@ -42,10 +42,22 @@ def extract_text_with_timestamps(file_path: str) -> dict:
     texts = []
     for segment in segments:
         texts.append(segment.text)
+        
+        # Word timestamps
+        word_list = []
+        if getattr(segment, "words", None):
+            for w in segment.words:
+                word_list.append({
+                    "start": float(round(w.start, 2)),
+                    "end": float(round(w.end, 2)),
+                    "word": w.word
+                })
+                
         timed_segments.append({
-            "start": round(segment.start, 2),
-            "end": round(segment.end, 2),
-            "text": segment.text.strip()
+            "start": float(round(segment.start, 2)),
+            "end": float(round(segment.end, 2)),
+            "text": segment.text.strip(),
+            "words": word_list
         })
 
     full_text = " ".join(texts)

@@ -9,6 +9,7 @@ import TermPanel from "@/components/Terms/TermPanel";
 import Timeline from "@/components/Timeline/Timeline";
 import ResearchBriefBar from "@/components/Report/ResearchBriefBar";
 import ReactMarkdown from "react-markdown";
+import ActiveTranscript from "@/components/Transcript/ActiveTranscript";
 import useSSE from "@/hooks/useSSE";
 import axios from "axios";
 
@@ -273,8 +274,17 @@ export default function Session() {
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: 10 }}
+                          className="h-full"
                         >
-                          <p>{videoData?.transcription || "No transcription available."}</p>
+                          {videoData?.timed_segments ? (
+                            <ActiveTranscript 
+                              timedSegments={videoData.timed_segments} 
+                              currentTime={currentTime} 
+                              onSeek={handleSeek} 
+                            />
+                          ) : (
+                            <p>{videoData?.transcription || "No transcription available."}</p>
+                          )}
                         </motion.div>
                       ) : (
                         <motion.div
