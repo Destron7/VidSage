@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db.database import get_db, sessionLocal
-from db.models import VideoDB
+from db.models import VideoDB, NoteDB
 
 from processing.whisper_stt import extract_text, extract_text_with_timestamps
 from processing.ytdlp_downloader import video_downloader
@@ -252,3 +252,27 @@ async def handle_voice_command(request: VoiceCommand):
     # This takes the text from React, passes it to your LLM agent, and returns the strict JSON Intent!
     intent_json = parse_intent(request.command)
     return intent_json
+
+@router.delete("/{video_id}")
+async def delete_video(video_id: int, db: Session = Depends(get_db)):
+    video = db.query(VideoDB).filter(VideoDB.id == video_id).first()
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+        
+    # Delete associated notes first to avoid foreign key constraint errors
+    db.query(NoteDB).filter(NoteDB.video_id == video_id).delete()
+    
+    # Delete the video record
+    db.delete(video)
+    db.commit()
+    
+    # Try to delete the physical file if it exists
+    if video.filename:
+        file_path = os.path.join("uploads", video.filename)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                print(f"Failed to delete file {file_path}: {e}")
+                
+    return {"message": f"Video {video_id} and associated data deleted successfully"}
